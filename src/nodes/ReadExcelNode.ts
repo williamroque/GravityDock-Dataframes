@@ -51,12 +51,12 @@ export class ReadExcelNode extends ExecuteNode {
                 return {};
             }
             
-            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
             const table = aq.from(jsonData);
             
             const allSheets = workbook.SheetNames.map(name => {
                 const sheet = workbook.Sheets[name];
-                return aq.from(XLSX.utils.sheet_to_json(sheet));
+                return aq.from(XLSX.utils.sheet_to_json(sheet, { defval: null }));
             });
             
             return { 
