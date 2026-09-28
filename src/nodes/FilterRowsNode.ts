@@ -16,7 +16,7 @@ export class FilterRowsNode extends BaseNode {
         {
             name: 'expression',
             label: 'Filter Expression (e.g. d.age > 20)',
-            type: 'text' as const,
+            type: 'js-expression' as const,
             defaultValue: ''
         }
     ];

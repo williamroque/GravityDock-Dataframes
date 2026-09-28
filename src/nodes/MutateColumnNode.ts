@@ -22,7 +22,7 @@ export class MutateColumnNode extends BaseNode {
         {
             name: 'expression',
             label: 'Expression (e.g. d.A + d.B)',
-            type: 'text' as const,
+            type: 'js-expression' as const,
             defaultValue: ''
         }
     ];
