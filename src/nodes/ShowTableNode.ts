@@ -8,20 +8,13 @@ export class ShowTableNode extends RenderNode {
     readonly inputs = [
         { name: 'Data', acceptsType: 'core:dataframe' }
     ];
-    readonly outputs = [
-        { name: 'Render', outputType: 'render' }
-    ];
+    readonly outputs = [];
     readonly properties = [];
 
     async evaluate(inputs: Record<string, any>, properties: Record<string, any>): Promise<Record<string, any>> {
         const table = inputs['Data'];
         if (!table) return {};
 
-        const result = {
-            type: 'core:dataframe',
-            content: table
-        };
-        
-        return { ...result, Render: result };
+        return { type: 'core:dataframe', content: table };
     }
 }
