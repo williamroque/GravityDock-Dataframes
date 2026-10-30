@@ -1,9 +1,9 @@
-import { ExecuteNode } from '@tracereactive/types';
+import { ExecuteNode } from '@gravitydock/types';
 import * as aq from 'arquero';
 
-import type { TraceReactiveAPI } from '@tracereactive/types';
+import type { GravityDockAPI } from '@gravitydock/types';
 
-declare const traceReactive: TraceReactiveAPI;
+declare const gravityDock: GravityDockAPI;
 
 export class WriteCSVNode extends ExecuteNode {
     readonly category = { name: 'I/O', accent: 'sky-500' } as any;
@@ -62,7 +62,7 @@ export class WriteCSVNode extends ExecuteNode {
                     if (properties.append) {
                         let fileExists = false;
                         try {
-                            await traceReactive.fs.stat(filePath);
+                            await gravityDock.fs.stat(filePath);
                             fileExists = true;
                         } catch (e) {
                             fileExists = false;
@@ -70,7 +70,7 @@ export class WriteCSVNode extends ExecuteNode {
 
                         if (fileExists) {
                             try {
-                                const existingData = await traceReactive.fs.readFile(filePath, 'utf-8');
+                                const existingData = await gravityDock.fs.readFile(filePath, 'utf-8');
                                 if (existingData && existingData.trim().length > 0) {
                                     const firstNewlineIdx = existingData.indexOf('\n');
                                     let headerLine = firstNewlineIdx !== -1 ? existingData.substring(0, firstNewlineIdx) : existingData;
@@ -101,7 +101,7 @@ export class WriteCSVNode extends ExecuteNode {
 
                                     if (csvStr) {
                                         const separator = existingData.endsWith('\n') ? '' : '\n';
-                                        await traceReactive.fs.writeFile(filePath, existingData + separator + csvStr);
+                                        await gravityDock.fs.writeFile(filePath, existingData + separator + csvStr);
                                     }
                                     this.lastWrittenCsvStr = rawCsvStr;
                                     this.lastWrittenPath = filePath;
@@ -117,7 +117,7 @@ export class WriteCSVNode extends ExecuteNode {
                     }
 
                     const csvStr = table.toCSV(csvOptions);
-                    await traceReactive.fs.writeFile(filePath, csvStr);
+                    await gravityDock.fs.writeFile(filePath, csvStr);
                     this.lastWrittenCsvStr = rawCsvStr;
                     this.lastWrittenPath = filePath;
                     resolve({});

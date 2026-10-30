@@ -1,4 +1,4 @@
-import { InteractiveNode } from '@tracereactive/types';
+import { InteractiveNode } from '@gravitydock/types';
 
 export class TableEditorNode extends InteractiveNode {
     readonly typeId = 'dataframes:tableEditor';

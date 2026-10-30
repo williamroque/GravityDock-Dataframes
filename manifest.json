@@ -1,5 +1,5 @@
 {
-  "id": "com.tracereactive.dataframes",
+  "id": "com.gravitydock.dataframes",
   "name": "Dataframes",
   "version": "1.0.1",
   "description": "Nodes for tabular data manipulation, filtering, and analysis using Arquero.",

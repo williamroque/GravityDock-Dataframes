@@ -1,9 +1,9 @@
-import { ExecuteNode } from '@tracereactive/types';
+import { ExecuteNode } from '@gravitydock/types';
 import * as aq from 'arquero';
 
-import type { TraceReactiveAPI } from '@tracereactive/types';
+import type { GravityDockAPI } from '@gravitydock/types';
 
-declare const traceReactive: TraceReactiveAPI;
+declare const gravityDock: GravityDockAPI;
 
 export class WriteJSONNode extends ExecuteNode {
     readonly category = { name: 'I/O', accent: 'sky-500' } as any;
@@ -53,7 +53,7 @@ export class WriteJSONNode extends ExecuteNode {
                 jsonStr = JSON.stringify(colObj, null, 2);
             }
             
-            await traceReactive.fs.writeFile(filePath, jsonStr);
+            await gravityDock.fs.writeFile(filePath, jsonStr);
             return {};
         } catch (err) {
             console.error('Failed to write JSON:', err);

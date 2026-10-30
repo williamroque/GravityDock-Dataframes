@@ -1,10 +1,10 @@
-import { ExecuteNode } from '@tracereactive/types';
+import { ExecuteNode } from '@gravitydock/types';
 import * as aq from 'arquero';
 import * as XLSX from 'xlsx';
 
-import type { TraceReactiveAPI } from '@tracereactive/types';
+import type { GravityDockAPI } from '@gravitydock/types';
 
-declare const traceReactive: TraceReactiveAPI;
+declare const gravityDock: GravityDockAPI;
 
 export class WriteExcelNode extends ExecuteNode {
     readonly category = { name: 'I/O', accent: 'sky-500' } as any;
@@ -49,7 +49,7 @@ export class WriteExcelNode extends ExecuteNode {
             // Generate binary buffer
             const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
             
-            await traceReactive.fs.writeFile(filePath, excelBuffer);
+            await gravityDock.fs.writeFile(filePath, excelBuffer);
             return {};
         } catch (err) {
             console.error('Failed to write Excel:', err);

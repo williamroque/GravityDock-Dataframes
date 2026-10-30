@@ -1,4 +1,4 @@
-import { RenderNode } from '@tracereactive/types';
+import { RenderNode } from '@gravitydock/types';
 
 export class ShowTableNode extends RenderNode {
     readonly category = { name: 'Render', accent: 'purple-400' } as any;

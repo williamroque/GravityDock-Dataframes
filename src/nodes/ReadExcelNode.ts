@@ -1,10 +1,10 @@
-import { ExecuteNode } from '@tracereactive/types';
+import { ExecuteNode } from '@gravitydock/types';
 import * as aq from 'arquero';
 import * as XLSX from 'xlsx';
 
-import type { TraceReactiveAPI } from '@tracereactive/types';
+import type { GravityDockAPI } from '@gravitydock/types';
 
-declare const traceReactive: TraceReactiveAPI;
+declare const gravityDock: GravityDockAPI;
 
 export class ReadExcelNode extends ExecuteNode {
     readonly category = { name: 'I/O', accent: 'sky-500' } as any;
@@ -39,7 +39,7 @@ export class ReadExcelNode extends ExecuteNode {
         const filePath = (inputs.Path as string) || (properties.filePath as string);
         if (!filePath) return {};
         try {
-            const binaryData = await traceReactive.fs.readFile(filePath, 'binary');
+            const binaryData = await gravityDock.fs.readFile(filePath, 'binary');
             
             const workbook = XLSX.read(binaryData, { type: 'binary' });
             

@@ -1,9 +1,9 @@
-import { ExecuteNode } from '@tracereactive/types';
+import { ExecuteNode } from '@gravitydock/types';
 import * as aq from 'arquero';
 
-import type { TraceReactiveAPI } from '@tracereactive/types';
+import type { GravityDockAPI } from '@gravitydock/types';
 
-declare const traceReactive: TraceReactiveAPI;
+declare const gravityDock: GravityDockAPI;
 
 export class ReadCSVNode extends ExecuteNode {
     readonly category = { name: 'I/O', accent: 'sky-500' } as any;
@@ -42,7 +42,7 @@ export class ReadCSVNode extends ExecuteNode {
         const filePath = (inputs.Path as string) || (properties.filePath as string);
         if (!filePath) return {};
         try {
-            const csvText = await traceReactive.fs.readFile(filePath, 'utf-8');
+            const csvText = await gravityDock.fs.readFile(filePath, 'utf-8');
             const table = aq.fromCSV(csvText, { 
                 header: properties.hasHeader !== false, 
                 delimiter: properties.delimiter || ',' 

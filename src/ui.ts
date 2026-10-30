@@ -2,10 +2,10 @@ import { TableEditorFrontend } from './frontends/TableEditorFrontend';
 
 declare const window: any;
 
-if (window.TraceReactiveUI && window.TraceReactiveUI.registerInteractiveFrontend) {
-    window.TraceReactiveUI.registerInteractiveFrontend({
+if (window.GravityDockUI && window.GravityDockUI.registerInteractiveFrontend) {
+    window.GravityDockUI.registerInteractiveFrontend({
         typeIds: ['dataframes:tableEditor'],
         component: TableEditorFrontend,
-        packageId: 'com.tracereactive.dataframes'
+        packageId: 'com.gravitydock.dataframes'
     });
 }
