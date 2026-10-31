@@ -83,10 +83,40 @@ gravityDock.onEvaluateNode(async ({ typeId, inputs, properties }: any) => {
         throw new Error(`Unknown node type: ${typeId}`);
     }
 
+    const sanitizeTable = (table: any): any => {
+        if (!table || typeof table.numRows !== 'function') return table;
+        if (
+            table.numCols() === 2 &&
+            table.columnNames()[0] === 'key' &&
+            table.columnNames()[1] === 'value' &&
+            table.numRows() > 0 &&
+            Array.isArray(table.get('value', 0))
+        ) {
+            try {
+                const colMap: Record<string, any[]> = {};
+                const colNames: string[] = [];
+                const n = table.numRows();
+                for (let i = 0; i < n; i++) {
+                    const k = String(table.get('key', i));
+                    const v = table.get('value', i);
+                    colMap[k] = Array.isArray(v) ? v : [v];
+                    colNames.push(k);
+                }
+                return aq.table(colMap, colNames);
+            } catch {
+                return table;
+            }
+        }
+        return table;
+    };
+
     const deserialize = (obj: any): any => {
         if (!obj) return obj;
         if (obj.__arqueroData) {
-            return aq.from(obj.__arqueroData);
+            const table = Array.isArray(obj.__arqueroData)
+                ? aq.from(obj.__arqueroData, obj.columns)
+                : aq.table(obj.__arqueroData, obj.columns);
+            return sanitizeTable(table);
         }
         if (Array.isArray(obj)) return obj.map(deserialize);
         if (typeof obj === 'object') {
