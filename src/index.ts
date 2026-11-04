@@ -29,6 +29,8 @@ import { SetHeaderNode } from './nodes/SetHeaderNode';
 import type { GravityDockAPI } from '@gravitydock/types';
 import * as aq from 'arquero';
 
+import { sanitizeTable, extractTable } from './utils';
+
 declare const gravityDock: GravityDockAPI;
 
 const nodes = [
@@ -83,40 +85,30 @@ gravityDock.onEvaluateNode(async ({ typeId, inputs, properties }: any) => {
         throw new Error(`Unknown node type: ${typeId}`);
     }
 
-    const sanitizeTable = (table: any): any => {
-        if (!table || typeof table.numRows !== 'function') return table;
-        if (
-            table.numCols() === 2 &&
-            table.columnNames()[0] === 'key' &&
-            table.columnNames()[1] === 'value' &&
-            table.numRows() > 0 &&
-            Array.isArray(table.get('value', 0))
-        ) {
-            try {
-                const colMap: Record<string, any[]> = {};
-                const colNames: string[] = [];
-                const n = table.numRows();
-                for (let i = 0; i < n; i++) {
-                    const k = String(table.get('key', i));
-                    const v = table.get('value', i);
-                    colMap[k] = Array.isArray(v) ? v : [v];
-                    colNames.push(k);
-                }
-                return aq.table(colMap, colNames);
-            } catch {
-                return table;
-            }
-        }
-        return table;
-    };
-
     const deserialize = (obj: any): any => {
         if (!obj) return obj;
+        if (typeof obj.numRows === 'function' && typeof obj.objects === 'function') {
+            return sanitizeTable(obj);
+        }
         if (obj.__arqueroData) {
-            const table = Array.isArray(obj.__arqueroData)
-                ? aq.from(obj.__arqueroData, obj.columns)
-                : aq.table(obj.__arqueroData, obj.columns);
-            return sanitizeTable(table);
+            try {
+                const table = Array.isArray(obj.__arqueroData)
+                    ? aq.from(obj.__arqueroData, obj.columns)
+                    : aq.table(obj.__arqueroData, obj.columns);
+                return sanitizeTable(table);
+            } catch {
+                return obj;
+            }
+        }
+        if (obj._data && typeof obj._data === 'object') {
+            try {
+                return sanitizeTable(aq.table(obj._data, obj._names));
+            } catch {
+                return obj;
+            }
+        }
+        if (obj.type === 'core:dataframe' && obj.content) {
+            return deserialize(obj.content);
         }
         if (Array.isArray(obj)) return obj.map(deserialize);
         if (typeof obj === 'object') {
@@ -129,9 +121,11 @@ gravityDock.onEvaluateNode(async ({ typeId, inputs, properties }: any) => {
 
     const serialize = (obj: any): any => {
         if (!obj) return obj;
-        // Duck-type check for Arquero table
         if (typeof obj.numRows === 'function' && typeof obj.columnNames === 'function') {
-            return { __arqueroData: obj.objects() };
+            return {
+                __arqueroData: typeof obj.objects === 'function' ? obj.objects() : [],
+                columns: obj.columnNames()
+            };
         }
         if (Array.isArray(obj)) return obj.map(serialize);
         if (typeof obj === 'object') {
@@ -143,6 +137,21 @@ gravityDock.onEvaluateNode(async ({ typeId, inputs, properties }: any) => {
     };
 
     const parsedInputs = deserialize(inputs);
+    if (node.inputs) {
+        for (const inputDef of node.inputs) {
+            const accepts = Array.isArray(inputDef.acceptsType) ? inputDef.acceptsType : [inputDef.acceptsType];
+            if (accepts.includes('core:dataframe')) {
+                const val = parsedInputs[inputDef.name];
+                if (val !== undefined && val !== null) {
+                    const extracted = extractTable(val);
+                    if (extracted) {
+                        parsedInputs[inputDef.name] = extracted;
+                    }
+                }
+            }
+        }
+    }
+
     const result = await node.evaluate(parsedInputs, properties);
     return serialize(result);
 });

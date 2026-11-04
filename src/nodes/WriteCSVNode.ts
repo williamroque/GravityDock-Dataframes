@@ -1,5 +1,6 @@
 import { ExecuteNode } from '@gravitydock/types';
 import * as aq from 'arquero';
+import { extractTable } from '../utils';
 
 import type { GravityDockAPI } from '@gravitydock/types';
 
@@ -41,10 +42,13 @@ export class WriteCSVNode extends ExecuteNode {
     private writeQueue: Promise<any> = Promise.resolve();
 
     async evaluate(inputs: Record<string, any>, properties: Record<string, any>): Promise<Record<string, any>> {
-        const table = inputs['Data'] as aq.internal.Table | undefined;
+        const rawData = inputs['Data'];
         const filePath = (inputs['Path'] as string) || (properties.filePath as string);
         
-        if (!table || !filePath) return {};
+        if (!rawData || !filePath) return {};
+
+        const table = extractTable(rawData);
+        if (!table || typeof table.toCSV !== 'function') return {};
 
         return new Promise((resolve) => {
             this.writeQueue = this.writeQueue.then(async () => {

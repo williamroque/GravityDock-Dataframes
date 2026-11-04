@@ -1,6 +1,7 @@
 import { ExecuteNode } from '@gravitydock/types';
 import * as aq from 'arquero';
 import * as XLSX from 'xlsx';
+import { extractTable } from '../utils';
 
 import type { GravityDockAPI } from '@gravitydock/types';
 
@@ -32,21 +33,31 @@ export class WriteExcelNode extends ExecuteNode {
     ];
 
     async evaluate(inputs: Record<string, any>, properties: Record<string, any>): Promise<Record<string, any>> {
-        const table = inputs['Data'] as aq.internal.Table | undefined;
+        const rawData = inputs['Data'];
         const filePath = (inputs['Path'] as string) || (properties.filePath as string);
         
-        if (!table || !filePath) return {};
+        if (!rawData || !filePath) return {};
 
         try {
-            // Convert to JSON array of objects
-            const jsonData = table.objects();
-            
-            // Create a new workbook and add the worksheet
+            const table = extractTable(rawData);
+            let jsonData: any[] = [];
+
+            if (table && typeof table.objects === 'function') {
+                jsonData = table.objects();
+            } else if (Array.isArray(rawData)) {
+                jsonData = rawData;
+            } else if (rawData && Array.isArray(rawData.__arqueroData)) {
+                jsonData = rawData.__arqueroData;
+            } else if (rawData && Array.isArray(rawData.rows)) {
+                jsonData = rawData.rows;
+            } else if (typeof (rawData as any).objects === 'function') {
+                jsonData = (rawData as any).objects();
+            }
+
             const workbook = XLSX.utils.book_new();
             const worksheet = XLSX.utils.json_to_sheet(jsonData);
             XLSX.utils.book_append_sheet(workbook, worksheet, properties.sheetName || 'Sheet1');
             
-            // Generate binary buffer
             const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
             
             await gravityDock.fs.writeFile(filePath, excelBuffer);

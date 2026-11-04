@@ -1,5 +1,6 @@
 import { ExecuteNode } from '@gravitydock/types';
 import * as aq from 'arquero';
+import { extractTable } from '../utils';
 
 import type { GravityDockAPI } from '@gravitydock/types';
 
@@ -34,23 +35,38 @@ export class WriteJSONNode extends ExecuteNode {
     ];
 
     async evaluate(inputs: Record<string, any>, properties: Record<string, any>): Promise<Record<string, any>> {
-        const table = inputs['Data'] as aq.internal.Table | undefined;
+        const rawData = inputs['Data'];
         const filePath = properties.filePath as string;
         
-        if (!table || !filePath) return {};
+        if (!rawData || !filePath) return {};
 
         try {
-            const format = properties.format as string || 'row';
+            const table = extractTable(rawData);
+            const format = (properties.format as string) || 'row';
             let jsonStr = '';
             
             if (format === 'row') {
-                jsonStr = JSON.stringify(table.objects(), null, 2);
-            } else {
-                const colObj: any = {};
-                for (const colName of table.columnNames()) {
-                    colObj[colName] = Array.from(table.array(colName));
+                let jsonData: any[] = [];
+                if (table && typeof table.objects === 'function') {
+                    jsonData = table.objects();
+                } else if (Array.isArray(rawData)) {
+                    jsonData = rawData;
+                } else if (rawData && Array.isArray(rawData.__arqueroData)) {
+                    jsonData = rawData.__arqueroData;
+                } else if (rawData && Array.isArray(rawData.rows)) {
+                    jsonData = rawData.rows;
                 }
-                jsonStr = JSON.stringify(colObj, null, 2);
+                jsonStr = JSON.stringify(jsonData, null, 2);
+            } else {
+                if (table && typeof table.columnNames === 'function') {
+                    const colObj: any = {};
+                    for (const colName of table.columnNames()) {
+                        colObj[colName] = Array.from(table.array(colName));
+                    }
+                    jsonStr = JSON.stringify(colObj, null, 2);
+                } else if (Array.isArray(rawData)) {
+                    jsonStr = JSON.stringify(rawData, null, 2);
+                }
             }
             
             await gravityDock.fs.writeFile(filePath, jsonStr);
