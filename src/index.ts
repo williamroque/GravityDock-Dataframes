@@ -26,6 +26,7 @@ import { ParseLocaleNumberNode } from './nodes/ParseLocaleNumberNode';
 import { TableEditorNode } from './nodes/TableEditorNode';
 import { SliceNode } from './nodes/SliceNode';
 import { SetHeaderNode } from './nodes/SetHeaderNode';
+import { AsMarkdownNode } from './nodes/AsMarkdownNode';
 import type { GravityDockAPI } from '@gravitydock/types';
 import * as aq from 'arquero';
 
@@ -61,7 +62,8 @@ const nodes = [
     new ParseLocaleNumberNode(),
     new TableEditorNode(),
     new SliceNode(),
-    new SetHeaderNode()
+    new SetHeaderNode(),
+    new AsMarkdownNode()
 ];
 
 const serializableNodes = nodes.map(n => ({
