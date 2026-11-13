@@ -9,6 +9,9 @@ import { CastTypeNode } from './nodes/CastTypeNode';
 import { FilterRowsNode } from './nodes/FilterRowsNode';
 import { SortRowsNode } from './nodes/SortRowsNode';
 import { DropDuplicatesNode } from './nodes/DropDuplicatesNode';
+import { DeduplicateExactNode } from './nodes/DeduplicateExactNode';
+import { DeduplicateAngularNode } from './nodes/DeduplicateAngularNode';
+import { DeduplicateToleranceNode } from './nodes/DeduplicateToleranceNode';
 import { HandleMissingValuesNode } from './nodes/HandleMissingValuesNode';
 import { ExtractColumnNode } from './nodes/ExtractColumnNode';
 import { FromArrayNode } from './nodes/FromArrayNode';
@@ -46,6 +49,9 @@ const nodes = [
     new FilterRowsNode(),
     new SortRowsNode(),
     new DropDuplicatesNode(),
+    new DeduplicateExactNode(),
+    new DeduplicateAngularNode(),
+    new DeduplicateToleranceNode(),
     new HandleMissingValuesNode(),
     new ExtractColumnNode(),
     new FromArrayNode(),

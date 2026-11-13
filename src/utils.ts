@@ -125,3 +125,14 @@ export function extractTable(data: any): aq.internal.Table | null {
 
     return sanitizeTable(table);
 }
+
+export function buildTableFromRows(rows: Record<string, any>[], columnNames: string[]): aq.internal.Table {
+    if (rows.length > 0) {
+        return aq.from(rows, columnNames);
+    }
+    const emptyCols: Record<string, any[]> = {};
+    for (const col of columnNames) {
+        emptyCols[col] = [];
+    }
+    return aq.table(emptyCols, columnNames);
+}
