@@ -12,6 +12,7 @@ export const TableEditorFrontend: React.FC<{ nodeId: string }> = ({ nodeId }) =>
     const [editColValue, setEditColValue] = useState('');
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const colInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const api = (window as any).api?.interactive;
@@ -23,23 +24,26 @@ export const TableEditorFrontend: React.FC<{ nodeId: string }> = ({ nodeId }) =>
             setData(incomingData);
             
             const outRaw = incomingData.output?.Data;
-            
-            const rawData = (outRaw && outRaw.__arqueroData) ? outRaw : null;
+            const rawData = (outRaw && outRaw.__arqueroData)
+                ? outRaw
+                : (incomingData.properties?.tableData ? { __arqueroData: incomingData.properties.tableData } : null);
             
             if (rawData && rawData.__arqueroData) {
                 try {
                     const table = aq.from(rawData.__arqueroData);
                     const cols = table.columnNames();
                     const newRows = table.objects();
-                    setColumns(cols);
+                    if (cols.length > 0) {
+                        setColumns(cols);
+                    }
                     setRows(newRows);
                     setHasUnsavedChanges(false);
                 } catch (e) {
-                    console.error("Failed to parse arquero data:", e);
+                    console.error('Failed to parse arquero data:', e);
                 }
             } else {
                 setColumns(['Column1']);
-                setRows([ { 'Column1': '' } ]);
+                setRows([{ 'Column1': '' }]);
             }
         });
 
@@ -51,24 +55,49 @@ export const TableEditorFrontend: React.FC<{ nodeId: string }> = ({ nodeId }) =>
     useEffect(() => {
         if (editingCell && inputRef.current) {
             inputRef.current.focus();
+            inputRef.current.select();
         }
     }, [editingCell]);
+
+    useEffect(() => {
+        if (editingColumnIdx !== null && colInputRef.current) {
+            colInputRef.current.focus();
+            colInputRef.current.select();
+        }
+    }, [editingColumnIdx]);
 
     const handleSave = useCallback(() => {
         const api = (window as any).api?.interactive;
         if (api) {
-            api.setOutput(nodeId, { Data: { __arqueroData: rows } });
             if (api.setProperty) {
                 api.setProperty(nodeId, 'tableData', rows);
+            } else {
+                api.setOutput(nodeId, { Data: { __arqueroData: rows } });
             }
             setHasUnsavedChanges(false);
         }
     }, [nodeId, rows]);
 
-    const handleAddRow = () => {
+    const createEmptyRow = useCallback((cols: string[]) => {
         const newRow: Record<string, any> = {};
-        columns.forEach(col => newRow[col] = null);
-        setRows([...rows, newRow]);
+        cols.forEach(col => {
+            newRow[col] = null;
+        });
+        return newRow;
+    }, []);
+
+    const getNextColumnName = useCallback((existingCols: string[]) => {
+        let idx = existingCols.length + 1;
+        let name = `Column${idx}`;
+        while (existingCols.includes(name)) {
+            idx++;
+            name = `Column${idx}`;
+        }
+        return name;
+    }, []);
+
+    const handleAddRow = () => {
+        setRows([...rows, createEmptyRow(columns)]);
         setHasUnsavedChanges(true);
     };
     
@@ -80,72 +109,183 @@ export const TableEditorFrontend: React.FC<{ nodeId: string }> = ({ nodeId }) =>
     };
 
     const handleAddColumn = () => {
-        const newCol = `Column${columns.length + 1}`;
+        const newCol = getNextColumnName(columns);
         setColumns([...columns, newCol]);
         const newRows = rows.map(r => ({ ...r, [newCol]: null }));
         setRows(newRows);
         setHasUnsavedChanges(true);
     };
 
+    const parseCellValue = (raw: string): any => {
+        if (raw.trim() === '') return null;
+        const num = Number(raw);
+        return !isNaN(num) ? num : raw;
+    };
+
+    const commitCellToRows = (targetRows: Record<string, any>[], rowIdx: number, col: string, raw: string) => {
+        const nextRows = [...targetRows];
+        nextRows[rowIdx] = { ...nextRows[rowIdx], [col]: parseCellValue(raw) };
+        return nextRows;
+    };
+
+    const startEditingCell = (targetRows: Record<string, any>[], rowIdx: number, col: string) => {
+        const val = targetRows[rowIdx]?.[col];
+        setEditingCell({ rowIdx, col });
+        setEditValue(val === null || val === undefined ? '' : String(val));
+    };
+
     const commitEdit = () => {
         if (!editingCell) return;
         const { rowIdx, col } = editingCell;
-        
-        // Auto type conversion
-        let finalVal: any = editValue;
-        if (editValue.trim() !== '') {
-            const num = Number(editValue);
-            if (!isNaN(num)) finalVal = num;
-        } else {
-            finalVal = null;
-        }
-
-        const newRows = [...rows];
-        newRows[rowIdx] = { ...newRows[rowIdx], [col]: finalVal };
+        const newRows = commitCellToRows(rows, rowIdx, col, editValue);
         setRows(newRows);
         setEditingCell(null);
         setHasUnsavedChanges(true);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            commitEdit();
-        } else if (e.key === 'Escape') {
-            setEditingCell(null);
-        }
-    };
+        if (!editingCell) return;
+        const { rowIdx, col } = editingCell;
+        const colIdx = columns.indexOf(col);
 
-    const commitColEdit = () => {
-        if (editingColumnIdx === null) return;
-        const newColName = editColValue.trim() || `Column${editingColumnIdx + 1}`;
-        
-        const oldColName = columns[editingColumnIdx];
-        if (oldColName === newColName) {
-            setEditingColumnIdx(null);
+        if (e.key === 'Escape') {
+            setEditingCell(null);
             return;
         }
 
-        const newCols = [...columns];
-        newCols[editingColumnIdx] = newColName;
-        
-        const newRows = rows.map(r => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const nextRows = commitCellToRows(rows, rowIdx, col, editValue);
+            setHasUnsavedChanges(true);
+
+            if (e.shiftKey) {
+                setRows(nextRows);
+                if (rowIdx > 0) {
+                    startEditingCell(nextRows, rowIdx - 1, col);
+                } else {
+                    setEditingCell(null);
+                    setEditingColumnIdx(colIdx);
+                    setEditColValue(col);
+                }
+            } else if (rowIdx < nextRows.length - 1) {
+                setRows(nextRows);
+                startEditingCell(nextRows, rowIdx + 1, col);
+            } else {
+                const appendedRows = [...nextRows, createEmptyRow(columns)];
+                setRows(appendedRows);
+                startEditingCell(appendedRows, rowIdx + 1, col);
+            }
+            return;
+        }
+
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const nextRows = commitCellToRows(rows, rowIdx, col, editValue);
+            setHasUnsavedChanges(true);
+
+            if (e.shiftKey) {
+                setRows(nextRows);
+                if (colIdx > 0) {
+                    startEditingCell(nextRows, rowIdx, columns[colIdx - 1]);
+                } else if (rowIdx > 0) {
+                    startEditingCell(nextRows, rowIdx - 1, columns[columns.length - 1]);
+                }
+            } else if (colIdx < columns.length - 1) {
+                setRows(nextRows);
+                startEditingCell(nextRows, rowIdx, columns[colIdx + 1]);
+            } else if (rowIdx < nextRows.length - 1) {
+                setRows(nextRows);
+                startEditingCell(nextRows, rowIdx + 1, columns[0]);
+            } else {
+                const appendedRows = [...nextRows, createEmptyRow(columns)];
+                setRows(appendedRows);
+                startEditingCell(appendedRows, rowIdx + 1, columns[0]);
+            }
+        }
+    };
+
+    const applyColEdit = (): { nextCols: string[]; nextRows: Record<string, any>[] } => {
+        if (editingColumnIdx === null) return { nextCols: columns, nextRows: rows };
+        const newColName = editColValue.trim() || `Column${editingColumnIdx + 1}`;
+        const oldColName = columns[editingColumnIdx];
+
+        if (oldColName === newColName) {
+            return { nextCols: columns, nextRows: rows };
+        }
+
+        const nextCols = [...columns];
+        nextCols[editingColumnIdx] = newColName;
+
+        const nextRows = rows.map(r => {
             const nr = { ...r };
             nr[newColName] = nr[oldColName];
             delete nr[oldColName];
             return nr;
         });
 
-        setColumns(newCols);
-        setRows(newRows);
-        setEditingColumnIdx(null);
+        setColumns(nextCols);
+        setRows(nextRows);
         setHasUnsavedChanges(true);
+        return { nextCols, nextRows };
+    };
+
+    const commitColEdit = () => {
+        if (editingColumnIdx === null) return;
+        applyColEdit();
+        setEditingColumnIdx(null);
     };
 
     const handleColKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            commitColEdit();
-        } else if (e.key === 'Escape') {
+        if (editingColumnIdx === null) return;
+
+        if (e.key === 'Escape') {
             setEditingColumnIdx(null);
+            return;
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const { nextCols, nextRows } = applyColEdit();
+            const col = nextCols[editingColumnIdx];
+            setEditingColumnIdx(null);
+
+            if (!e.shiftKey) {
+                if (nextRows.length === 0) {
+                    const appendedRows = [createEmptyRow(nextCols)];
+                    setRows(appendedRows);
+                    setHasUnsavedChanges(true);
+                    startEditingCell(appendedRows, 0, col);
+                } else {
+                    startEditingCell(nextRows, 0, col);
+                }
+            }
+            return;
+        }
+
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const { nextCols, nextRows } = applyColEdit();
+
+            if (e.shiftKey) {
+                if (editingColumnIdx > 0) {
+                    const prevIdx = editingColumnIdx - 1;
+                    setEditingColumnIdx(prevIdx);
+                    setEditColValue(nextCols[prevIdx]);
+                }
+            } else if (editingColumnIdx < nextCols.length - 1) {
+                const nextIdx = editingColumnIdx + 1;
+                setEditingColumnIdx(nextIdx);
+                setEditColValue(nextCols[nextIdx]);
+            } else {
+                const newCol = getNextColumnName(nextCols);
+                const updatedCols = [...nextCols, newCol];
+                const updatedRows = nextRows.map(r => ({ ...r, [newCol]: null }));
+                setColumns(updatedCols);
+                setRows(updatedRows);
+                setHasUnsavedChanges(true);
+                setEditingColumnIdx(updatedCols.length - 1);
+                setEditColValue(newCol);
+            }
         }
     };
 
@@ -283,7 +423,7 @@ export const TableEditorFrontend: React.FC<{ nodeId: string }> = ({ nodeId }) =>
                                     </div>
                                     {editingColumnIdx === idx && (
                                         <input
-                                            autoFocus
+                                            ref={colInputRef}
                                             value={editColValue}
                                             onChange={(e) => setEditColValue(e.target.value)}
                                             onBlur={commitColEdit}
