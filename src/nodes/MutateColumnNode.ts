@@ -29,7 +29,7 @@ export class MutateColumnNode extends BaseNode {
 
     async evaluate(inputs: Record<string, any>, properties: Record<string, any>): Promise<Record<string, any>> {
         const table = inputs['Data'] as aq.internal.Table | undefined;
-        if (!table) return {};
+        if (!table || typeof table.derive !== 'function') return {};
         
         const colName = properties.columnName as string || 'new_column';
         const expr = properties.expression as string;
