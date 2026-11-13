@@ -6,6 +6,7 @@ import { buildTableFromRows } from '../utils';
 interface KeptPoint {
     lon: number;
     lat: number;
+    tolRad: number;
 }
 
 export class DeduplicateAngularNode extends BaseNode {
@@ -75,6 +76,13 @@ export class DeduplicateAngularNode extends BaseNode {
             defaultValue: 'arcsec'
         },
         {
+            name: 'toleranceColumn',
+            label: 'Tolerance Column (optional)',
+            description: 'Optional column name for per-row angular tolerance (overrides Angular Tolerance)',
+            type: 'string' as const,
+            defaultValue: ''
+        },
+        {
             name: 'keep',
             label: 'Keep',
             type: 'select' as const,
@@ -97,6 +105,12 @@ export class DeduplicateAngularNode extends BaseNode {
         const columnNames = table.columnNames();
         if (!columnNames.includes(lonColumn) || !columnNames.includes(latColumn)) {
             console.error(`Deduplicate (Angular): missing column(s) ${lonColumn}, ${latColumn}`);
+            return {};
+        }
+
+        const toleranceColumn = ((properties.toleranceColumn as string) || '').trim();
+        if (toleranceColumn && !columnNames.includes(toleranceColumn)) {
+            console.error(`Deduplicate (Angular): missing tolerance column ${toleranceColumn}`);
             return {};
         }
 
@@ -123,11 +137,28 @@ export class DeduplicateAngularNode extends BaseNode {
             return {};
         }
 
-        const tolRad = angularToleranceToRadians(tolerance, toleranceUnit);
-        const binSize = tolRad > 0 ? tolRad : 1e-9;
+        const defaultTolRad = angularToleranceToRadians(tolerance, toleranceUnit);
 
         try {
             const rows = table.objects() as Record<string, any>[];
+            const rowTols = new Array<number>(rows.length);
+            let maxTolRad = defaultTolRad;
+
+            if (toleranceColumn) {
+                maxTolRad = 0;
+                for (let i = 0; i < rows.length; i++) {
+                    const parsed = parseQuantity(rows[i][toleranceColumn], toleranceUnit);
+                    const rad = parsed
+                        ? angularToleranceToRadians(Math.max(0, parsed.value), parsed.unit || toleranceUnit)
+                        : defaultTolRad;
+                    rowTols[i] = rad;
+                    if (rad > maxTolRad) maxTolRad = rad;
+                }
+            } else {
+                rowTols.fill(defaultTolRad);
+            }
+
+            const binSize = maxTolRad > 0 ? maxTolRad : 1e-9;
             const keepFlags = new Array<boolean>(rows.length).fill(false);
             const buckets = new Map<number, KeptPoint[]>();
 
@@ -145,6 +176,7 @@ export class DeduplicateAngularNode extends BaseNode {
                     continue;
                 }
 
+                const rowTolRad = rowTols[i];
                 const bin = Math.floor(latRad / binSize);
                 let isDuplicate = false;
 
@@ -152,8 +184,9 @@ export class DeduplicateAngularNode extends BaseNode {
                     const candidates = buckets.get(b);
                     if (!candidates) continue;
                     for (const pt of candidates) {
-                        if (Math.abs(latRad - pt.lat) > tolRad) continue;
-                        if (angularSeparationRad(lonRad, latRad, pt.lon, pt.lat) <= tolRad) {
+                        const pairTol = Math.max(rowTolRad, pt.tolRad);
+                        if (Math.abs(latRad - pt.lat) > pairTol) continue;
+                        if (angularSeparationRad(lonRad, latRad, pt.lon, pt.lat) <= pairTol) {
                             isDuplicate = true;
                             break;
                         }
@@ -164,9 +197,9 @@ export class DeduplicateAngularNode extends BaseNode {
                     keepFlags[i] = true;
                     const list = buckets.get(bin);
                     if (list) {
-                        list.push({ lon: lonRad, lat: latRad });
+                        list.push({ lon: lonRad, lat: latRad, tolRad: rowTolRad });
                     } else {
-                        buckets.set(bin, [{ lon: lonRad, lat: latRad }]);
+                        buckets.set(bin, [{ lon: lonRad, lat: latRad, tolRad: rowTolRad }]);
                     }
                 }
             }
